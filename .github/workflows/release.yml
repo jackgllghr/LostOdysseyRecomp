@@ -486,7 +486,11 @@ jobs:
           }
           names = {asset['name'] for asset in assets}
           # The macOS disk image is built on a Mac and uploaded separately.
-          optional = {f'LostOdysseyRecomp-macos-arm64-{tag}.dmg'}
+          optional = {
+              f'LostOdysseyRecomp-macos-arm64-{tag}.dmg',
+              f'LostOdysseyRecomp-linux-arm64-{tag}.AppImage',
+              f'LostOdysseyRecomp-linux-arm64-{tag}.flatpak',
+          }
           assert expected <= names <= expected | optional, 'Expected the installable packages and at most the macOS disk image; shader packs live on the shader-packs release'
           assert all(asset['size'] > 0 and asset['state'] == 'uploaded' for asset in assets), 'Incomplete release upload'
           PY

@@ -17,6 +17,7 @@
 
 ![Windows x64](https://img.shields.io/badge/Windows-x64-0078D6)
 ![Linux x64](https://img.shields.io/badge/Linux-x64-FCC624?logo=linux&logoColor=black)
+![Linux arm64](https://img.shields.io/badge/Linux-arm64-FCC624?logo=linux&logoColor=black)
 ![macOS arm64](https://img.shields.io/badge/macOS-arm64-000000?logo=apple&logoColor=white)
 ![Android arm64](https://img.shields.io/badge/Android-arm64-3DDC84?logo=android&logoColor=white)
 
@@ -39,6 +40,8 @@ Download the package for your platform from the [latest release](https://github.
 | Windows x64 | `LostOdysseyRecomp-windows-x64-<version>.zip` | Extract the whole ZIP to a writable folder and run `LostOdysseyRecomp.exe`. Needs a CPU with AVX. |
 | Linux x64 | `LostOdysseyRecomp-linux-x64-<version>.AppImage` | Make it executable with `chmod +x`, then run it. |
 | Linux x64 | `LostOdysseyRecomp-linux-x64-<version>.flatpak` | Install the Freedesktop 26.08 runtime, then the bundle ([commands](docs/INSTALLING.md#flatpak)). |
+| Linux arm64 | `LostOdysseyRecomp-linux-arm64-<version>.AppImage` | Make it executable with `chmod +x`, then run it. |
+| Linux arm64 | `LostOdysseyRecomp-linux-arm64-<version>.flatpak` | Install the Freedesktop 26.08 runtime, then the bundle ([commands](docs/INSTALLING.md#flatpak)). |
 | macOS arm64 | `LostOdysseyRecomp-macos-arm64-<version>.dmg` | Drag `LostOdysseyRecomp.app` to Applications. Needs an Apple Silicon Mac with macOS 15 or later. |
 | Android arm64 | `LostOdysseyRecomp-android-arm64-<version>.apk` | Install the APK and open it once. Needs a 64-bit Android 8.0+ device with Vulkan. |
 

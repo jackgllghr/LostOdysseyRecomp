@@ -25,7 +25,7 @@ def write(path: Path, data: bytes = b"payload") -> Path:
 def appdir(root: Path) -> Path:
     directory = root / "LostOdysseyRecomp.AppDir"
     files = directory / "usr"
-    for name in flatpak.REQUIRED:
+    for name in flatpak.REQUIRED | flatpak.DLSS_REQUIRED | flatpak.FSR_REQUIRED:
         write(files / name)
     write(files / "lib/libcurl.so.4", b"runtime dependency")
     write(files / "share/doc/libcurl4/copyright", b"license")
@@ -128,6 +128,26 @@ class PackageFlatpakTest(unittest.TestCase):
                 self.assertIn("--arch=x86_64", commands[index])
                 self.assertIn("--share=ipc", commands[index + 2])
                 self.assertIn("--command=LostOdysseyRecomp", commands[index + 2])
+
+    def test_arm64_uses_aarch64_runtime_and_asset_name(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            commands = []
+            def fake_run(command):
+                commands.append(command)
+                if command[:2] == ["flatpak", "build-init"]:
+                    (Path(command[3]) / "files").mkdir(parents=True)
+                elif command[:2] == ["flatpak", "build-bundle"]:
+                    write(Path(command[3]), b"bundle")
+            args = argparse.Namespace(appdir=appdir(root), output=root / "output", version="v0.7.3",
+                                      architecture="arm64")
+            with patch.object(flatpak, "source_version", return_value="0.7.3"), \
+                 patch.object(flatpak.subprocess, "check_output", return_value="a" * 40), \
+                 patch.object(flatpak, "run", side_effect=fake_run):
+                result = flatpak.package(args)
+            self.assertIn("--arch=aarch64", commands[0])
+            self.assertEqual(result["bundle"], "LostOdysseyRecomp-linux-arm64-v0.7.3.flatpak")
+            self.assertIn("/aarch64/", result["runtime_ref"])
 
     def test_release_version_must_match_checkout_and_output_is_exclusive(self):
         with tempfile.TemporaryDirectory() as temporary:

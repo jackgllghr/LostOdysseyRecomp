@@ -1,6 +1,6 @@
 # Linux AArch64 / ARM64 build
 
-This is an **experimental source-build path**, not an official ARM64 release target. The project currently publishes Linux x86-64 artifacts; Microsoft also publishes Linux DXC binaries for x86-64, not AArch64.
+Official Linux ARM64 AppImage and Flatpak assets are published with each release. Microsoft still publishes Linux DXC binaries only for x86-64, so release builds compile the ARM64 DXC fallback from source.
 
 The goal of this path is to make a native Linux AArch64 ELF reproducible while retaining both shader mechanisms used by the desktop runtime:
 

@@ -9,7 +9,11 @@ BUILD_DIR="${DXC_BUILD_DIR:-$ROOT/out/build/dxc-linux-arm64}"
 STAGE_DIR="${DXC_STAGE_DIR:-$ROOT/tools/XenosRecomp/thirdparty/dxc-bin/lib/arm64}"
 TOOLCHAIN="$ROOT/cmake/toolchains/dxc-linux-aarch64.cmake"
 
-for tool in git cmake ninja python3 aarch64-linux-gnu-gcc aarch64-linux-gnu-g++ gcc g++; do
+native_arm64=0
+if [[ "$(uname -m)" =~ ^(aarch64|arm64)$ ]]; then native_arm64=1; fi
+required_tools=(git cmake ninja python3 gcc g++)
+if [[ "$native_arm64" == 0 ]]; then required_tools+=(aarch64-linux-gnu-gcc aarch64-linux-gnu-g++); fi
+for tool in "${required_tools[@]}"; do
     command -v "$tool" >/dev/null || { echo "Missing required tool: $tool" >&2; exit 2; }
 done
 
@@ -123,7 +127,6 @@ target_args=(
     -B "$BUILD_DIR"
     -G Ninja
     -DCMAKE_BUILD_TYPE=Release
-    -DCMAKE_TOOLCHAIN_FILE="$TOOLCHAIN"
     -DCLANG_FORMAT_EXE="$CLANG_FORMAT"
     -DENABLE_SPIRV_CODEGEN=ON
     -DLLVM_TARGETS_TO_BUILD=
@@ -139,6 +142,7 @@ target_args=(
     -DSPIRV_SKIP_EXECUTABLES=ON
     -DHLSL_COPY_GENERATED_SOURCES=1
 )
+if [[ "$native_arm64" == 0 ]]; then target_args+=(-DCMAKE_TOOLCHAIN_FILE="$TOOLCHAIN"); fi
 cmake "${target_args[@]}"
 
 cmake --build "$BUILD_DIR" --target dxcompiler dxc -j "${DXC_JOBS:-$(nproc)}"
@@ -151,14 +155,18 @@ echo "Staged ARM64 DXC: $STAGE_DIR/libdxcompiler.so"
 file "$STAGE_DIR/libdxcompiler.so"
 sha256sum "$STAGE_DIR/libdxcompiler.so"
 
-# Optional executable smoke test when qemu-user is available on an x86-64 host.
-if command -v qemu-aarch64 >/dev/null; then
+# Smoke test the target compiler natively, or through qemu on a cross-build host.
+if [[ "$native_arm64" == 1 ]] || command -v qemu-aarch64 >/dev/null; then
     dxc_bin="$(find "$BUILD_DIR/bin" -maxdepth 1 -type f -name 'dxc*' -perm -111 | head -n 1 || true)"
     if [[ -n "$dxc_bin" ]]; then
         test_hlsl="$BUILD_DIR/live-dxc-smoke.hlsl"
         test_spv="$BUILD_DIR/live-dxc-smoke.spv"
         printf '%s\n' 'float4 main(float4 p:SV_Position):SV_Target{return float4(1,0,0,1);}' >"$test_hlsl"
-        LD_LIBRARY_PATH="$BUILD_DIR/lib" qemu-aarch64 -L /usr/aarch64-linux-gnu             "$dxc_bin" -spirv -T ps_6_0 -E main -Fo "$test_spv" "$test_hlsl"
+        if [[ "$native_arm64" == 1 ]]; then
+            LD_LIBRARY_PATH="$BUILD_DIR/lib" "$dxc_bin" -spirv -T ps_6_0 -E main -Fo "$test_spv" "$test_hlsl"
+        else
+            LD_LIBRARY_PATH="$BUILD_DIR/lib" qemu-aarch64 -L /usr/aarch64-linux-gnu "$dxc_bin" -spirv -T ps_6_0 -E main -Fo "$test_spv" "$test_hlsl"
+        fi
         python3 - "$test_spv" <<'PY'
 from pathlib import Path
 import struct, sys

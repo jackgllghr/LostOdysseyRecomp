@@ -663,7 +663,9 @@ jobs:
           expected = {
               f'LostOdysseyRecomp-windows-x64-{tag}.zip',
               f'LostOdysseyRecomp-linux-x64-{tag}.AppImage',
-              f'LostOdysseyRecomp-linux-x64-{tag}.flatpak',
+               f'LostOdysseyRecomp-linux-x64-{tag}.flatpak',
+              f'LostOdysseyRecomp-linux-arm64-{tag}.AppImage',
+              f'LostOdysseyRecomp-linux-arm64-{tag}.flatpak',
               f'LostOdysseyRecomp-android-arm64-{tag}.apk',
           }
           names = {asset['name'] for asset in assets}

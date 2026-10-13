@@ -341,6 +341,11 @@ int wmain(int argc, wchar_t **argv)
        "browser_download_url":"https://github.com/freefrank/LostOdysseyRecomp/releases/download/v0.4.6/LostOdysseyRecomp-macos-arm64-v0.4.6.dmg"}]})", error);
     const auto macAsset = macRelease ? updater::SelectAsset(*macRelease, "macos", "arm64", error) : std::nullopt;
     Expect(macAsset && macAsset->size == 789, "macOS selects its disk image");
+    const auto linuxArmRelease = updater::ParseGitHubRelease(R"({"tag_name":"v0.4.6","assets":[
+      {"name":"LostOdysseyRecomp-linux-arm64-v0.4.6.AppImage","state":"uploaded","size":654,
+       "browser_download_url":"https://github.com/freefrank/LostOdysseyRecomp/releases/download/v0.4.6/LostOdysseyRecomp-linux-arm64-v0.4.6.AppImage"}]})", error);
+    const auto linuxArmAsset = linuxArmRelease ? updater::SelectAsset(*linuxArmRelease, "linux", "arm64", error) : std::nullopt;
+    Expect(linuxArmAsset && linuxArmAsset->size == 654, "Linux ARM64 selects its AppImage");
     const auto androidRelease = updater::ParseGitHubRelease(R"({"tag_name":"v0.4.6","assets":[
       {"name":"LostOdysseyRecomp-android-arm64-v0.4.6.apk","state":"uploaded","size":321,
        "browser_download_url":"https://github.com/freefrank/LostOdysseyRecomp/releases/download/v0.4.6/LostOdysseyRecomp-android-arm64-v0.4.6.apk"}]})", error);

@@ -118,7 +118,12 @@ StartupResult PrepareAtStartup(const StartupOptions &options)
         result.detail = "running build is not an AppImage";
         return result;
     }
-    auto asset = SelectAsset(*release, "linux", "x64", error);
+#if defined(__aarch64__)
+    constexpr std::string_view LinuxArchitecture = "arm64";
+#else
+    constexpr std::string_view LinuxArchitecture = "x64";
+#endif
+    auto asset = SelectAsset(*release, "linux", LinuxArchitecture, error);
     if (!asset)
     {
         result.status = StartupStatus::NoCompatibleAsset; result.detail = error; return result;

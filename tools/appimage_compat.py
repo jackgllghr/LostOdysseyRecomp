@@ -83,7 +83,11 @@ def check_glibc(needs, label):
                     "Rebuild this binary/dependency on Ubuntu 22.04; repacking is insufficient.")
 
 
-def appdir_elfs(appdir):
+ELF_MACHINES = {"x64": b"\x3e\x00", "arm64": b"\xb7\x00"}
+
+
+def appdir_elfs(appdir, architecture="x64"):
+    expected_machine = ELF_MACHINES[architecture]
     for path in sorted(appdir.rglob("*")):
         if path.is_symlink() or not path.is_file():
             continue
@@ -91,14 +95,14 @@ def appdir_elfs(appdir):
             header = stream.read(20)
         if not header.startswith(b"\x7fELF"):
             continue
-        if len(header) != 20 or header[4:6] != b"\x02\x01" or header[18:20] != b"\x3e\x00":
-            raise CompatibilityError(f"Expected an x86_64 ELF: {path}")
+        if len(header) != 20 or header[4:6] != b"\x02\x01" or header[18:20] != expected_machine:
+            raise CompatibilityError(f"Expected a {architecture} ELF: {path}")
         yield path
 
 
-def validate_abi(appdir):
+def validate_abi(appdir, architecture="x64"):
     appdir = appdir.resolve()
-    elfs = list(appdir_elfs(appdir))
+    elfs = list(appdir_elfs(appdir, architecture))
     if not elfs:
         raise CompatibilityError("AppDir contains no ELF binaries")
     info = {}
@@ -122,7 +126,7 @@ def validate_abi(appdir):
     print(f"AppImage ABI: {len(elfs)} ELF files checked; GLIBC <= {BASELINE_GLIBC}; GCC runtimes bundled")
 
 
-def validate_loader(appdir):
+def validate_loader(appdir, architecture="x64"):
     """Resolve dependencies without running the program or initializing a GPU.
 
     Run on the extracted final AppImage. Checking the build tree alone would
@@ -134,7 +138,7 @@ def validate_loader(appdir):
     env = {key: value for key, value in os.environ.items()
            if key not in ("LD_LIBRARY_PATH", "LD_PRELOAD", "LD_AUDIT")}
     env["LC_ALL"] = "C"
-    for binary in appdir_elfs(appdir):
+    for binary in appdir_elfs(appdir, architecture):
         dynamic = run("readelf", "--wide", "--dynamic", str(binary))
         if "(NEEDED)" not in dynamic:
             continue

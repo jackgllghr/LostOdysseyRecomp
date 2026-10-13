@@ -18,9 +18,17 @@ cmake_args=(
     -B "$BUILD_DIR"
     -G Ninja
     -DCMAKE_BUILD_TYPE=Release
-    -DCMAKE_TOOLCHAIN_FILE="$ROOT/cmake/toolchains/linux-aarch64.cmake"
     -DLO_TARGET_ARCH=armv8-a
 )
+
+# A native ARM64 host must use its own pkg-config files and system library
+# paths. The cross toolchain deliberately hides those paths to prevent x64
+# dependencies leaking into cross builds.
+if [[ ! "$(uname -m)" =~ ^(aarch64|arm64)$ ]]; then
+    cmake_args+=(-DCMAKE_TOOLCHAIN_FILE="$ROOT/cmake/toolchains/linux-aarch64.cmake")
+else
+    cmake_args+=(-DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++)
+fi
 
 # ROCKNIX-style images commonly expose Wayland/KMSDRM but not X11 development
 # libraries. Keep the generic build untouched unless explicitly requested.

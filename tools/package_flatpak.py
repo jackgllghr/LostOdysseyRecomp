@@ -19,18 +19,21 @@ TEMPLATE = ROOT / "packaging/linux/io.github.freefrank.LostOdysseyRecomp.json"
 APP_ID = "io.github.freefrank.LostOdysseyRecomp"
 REQUIRED = {
     "bin/LostOdysseyRecomp",
-    # Signed by NVIDIA and verified unmodified by package_appimage.py.
-    "bin/ngx/libnvidia-ngx-dlss.so.310.9.1",
     "lib/libdxcompiler.so",
-    "share/licenses/lost-odyssey-recomp/NVIDIA-DLSS/LICENSE.txt",
-    "share/licenses/lost-odyssey-recomp/NVIDIA-DLSS/NOTICE.txt",
-    "share/licenses/lost-odyssey-recomp/LICENSE-FidelityFX.txt",
     "share/licenses/lost-odyssey-recomp/zstd-LICENSE.txt",
     "share/licenses/lost-odyssey-recomp/XeGTAO.txt",
     f"share/applications/{APP_ID}.desktop",
     f"share/icons/hicolor/256x256/apps/{APP_ID}.png",
     f"share/metainfo/{APP_ID}.metainfo.xml",
 }
+FSR_REQUIRED = {"share/licenses/lost-odyssey-recomp/LICENSE-FidelityFX.txt"}
+DLSS_REQUIRED = {
+    # Signed by NVIDIA and verified unmodified by package_appimage.py.
+    "bin/ngx/libnvidia-ngx-dlss.so.310.9.1",
+    "share/licenses/lost-odyssey-recomp/NVIDIA-DLSS/LICENSE.txt",
+    "share/licenses/lost-odyssey-recomp/NVIDIA-DLSS/NOTICE.txt",
+}
+FLATPAK_ARCHITECTURES = {"x64": "x86_64", "arm64": "aarch64"}
 
 # Run inside the selected Platform before export. This does not launch the game
 # or write into /app. It also checks libraries loaded by name at runtime.
@@ -59,8 +62,7 @@ for root in ('/app/bin', '/app/lib'):
                                         ('not found', 'undefined symbol', 'symbol lookup error')):
                 sys.exit('Unresolved runtime dependency in ' + str(path) + ':\n' + result.stdout)
             checked += 1
-for library in ('/app/lib/libdxcompiler.so', '/app/bin/ngx/libnvidia-ngx-dlss.so.310.9.1',
-                'libpipewire-0.3.so.0', 'libpulse.so.0'):
+for library in ('/app/lib/libdxcompiler.so', 'libpipewire-0.3.so.0', 'libpulse.so.0'):
     ctypes.CDLL(library)
 print('Flatpak runtime probe: ' + str(checked) + ' ELF files and four dlopen libraries resolved')
 """
@@ -106,7 +108,7 @@ def inspect_payload_tree(files: Path) -> None:
                 raise ValueError(f"Symlink leaves payload tree: {name}")
         elif not entry.is_file():
             raise ValueError(f"Unsupported payload entry: {name}")
-        if name in REQUIRED:
+        if name in REQUIRED | DLSS_REQUIRED | FSR_REQUIRED:
             continue
         parts = Path(name).parts
         if parts[0] == "lib" and re.fullmatch(r"lib[^/]+\.so(?:\.[0-9A-Za-z._-]+)?", parts[-1]):
@@ -114,10 +116,12 @@ def inspect_payload_tree(files: Path) -> None:
         if len(parts) == 4 and parts[:2] == ("share", "doc") and parts[-1] == "copyright":
             continue
         raise ValueError(f"Unexpected payload path (possible source/private input): {name}")
-    missing = REQUIRED - found
+    required = REQUIRED | (DLSS_REQUIRED if "bin/ngx/libnvidia-ngx-dlss.so.310.9.1" in found else set()) | \
+        (FSR_REQUIRED if "share/licenses/lost-odyssey-recomp/LICENSE-FidelityFX.txt" in found else set())
+    missing = required - found
     if missing:
         raise ValueError(f"Missing required AppDir payload: {sorted(missing)}")
-    if (files / "bin/ngx/libnvidia-ngx-dlss.so.310.9.1").is_symlink():
+    if "bin/ngx/libnvidia-ngx-dlss.so.310.9.1" in found and (files / "bin/ngx/libnvidia-ngx-dlss.so.310.9.1").is_symlink():
         raise ValueError("NGX snippet must be NVIDIA's file, not a link")
     if not (files / "bin/LostOdysseyRecomp").is_file():
         raise ValueError("Runtime ELF missing")
@@ -145,7 +149,9 @@ def package(args: argparse.Namespace) -> dict:
     output.mkdir(parents=True)
     build = output / "builder"
     repo = output / "repo"
-    run(["flatpak", "build-init", "--arch=x86_64", str(build), APP_ID, metadata["sdk"],
+    architecture = getattr(args, "architecture", "x64")
+    flatpak_architecture = FLATPAK_ARCHITECTURES[architecture]
+    run(["flatpak", "build-init", f"--arch={flatpak_architecture}", str(build), APP_ID, metadata["sdk"],
          metadata["runtime"], metadata["runtime-version"]])
     shutil.copytree(source, build / "files", symlinks=True, dirs_exist_ok=True, copy_function=shutil.copy2)
     inspect_payload_tree(build / "files")
@@ -154,7 +160,7 @@ def package(args: argparse.Namespace) -> dict:
     run(["flatpak", "build-finish", *metadata["finish-args"],
          f"--command={metadata['command']}", str(build)])
     run(["flatpak", "build-export", str(repo), str(build), branch])
-    bundle_name = (f"LostOdysseyRecomp-linux-x64-{args.version}.flatpak" if args.version else
+    bundle_name = (f"LostOdysseyRecomp-linux-{architecture}-{args.version}.flatpak" if args.version else
                    f"LostOdysseyRecomp-v{version}-{commit[:8]}-dev.flatpak")
     bundle = output / bundle_name
     run(["flatpak", "build-bundle", str(repo), str(bundle), APP_ID, branch])
@@ -162,7 +168,7 @@ def package(args: argparse.Namespace) -> dict:
         raise ValueError("Flatpak bundler did not produce a nonempty bundle")
     record = {"version": version, "branch": branch, "packaging_commit": commit,
               "appdir": str(appdir),
-              "runtime_ref": f"{metadata['runtime']}/x86_64/{metadata['runtime-version']}",
+               "runtime_ref": f"{metadata['runtime']}/{flatpak_architecture}/{metadata['runtime-version']}",
               "bundle": bundle_name, "size": bundle.stat().st_size}
     (output / "source.json").write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
     return record
@@ -173,6 +179,7 @@ def main() -> int:
     parser.add_argument("--appdir", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--version", default="", help="Formal release tag, for example v0.7.3")
+    parser.add_argument("--architecture", choices=tuple(FLATPAK_ARCHITECTURES), default="x64")
     args = parser.parse_args()
     try:
         result = package(args)

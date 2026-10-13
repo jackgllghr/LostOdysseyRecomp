@@ -68,6 +68,7 @@ def main():
     parser.add_argument("--build", type=Path, default=ROOT / "out/build/linux")
     parser.add_argument("--output", type=Path, default=ROOT / "out/releases")
     parser.add_argument("--version", default="")
+    parser.add_argument("--architecture", choices=("x64", "arm64"), default="x64")
     parser.add_argument("--linuxdeploy", default="linuxdeploy")
     parser.add_argument("--cxx-compiler", default=os.environ.get("CXX", "clang++"),
                         help="Build compiler used to locate the bundled GCC runtimes")
@@ -88,7 +89,7 @@ def main():
     tag = asset_tag(build, args.version)
     # Existing released updaters match this name exactly. A cosmetic rename
     # for AppImageHub would break their upgrade path.
-    name = f"LostOdysseyRecomp-linux-x64-{tag}"
+    name = f"LostOdysseyRecomp-linux-{args.architecture}-{tag}"
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="appimage-", dir=output) as temporary:
@@ -171,7 +172,7 @@ def main():
         subprocess.run(command, cwd=temporary, check=True)
         validate_apprun(appdir)
         validate_appdir_links(appdir)
-        validate_abi(appdir)
+        validate_abi(appdir, args.architecture)
         subprocess.run([*command, "--output", "appimage"], cwd=temporary, check=True)
         validate_apprun(appdir)
         validate_appdir_links(appdir)
@@ -189,8 +190,8 @@ def main():
         final_appdir = extracted / "squashfs-root"
         validate_apprun(final_appdir)
         validate_appdir_links(final_appdir)
-        validate_abi(final_appdir)
-        validate_loader(final_appdir)
+        validate_abi(final_appdir, args.architecture)
+        validate_loader(final_appdir, args.architecture)
         if dlss_runtime.is_file():
             validate_ngx_snippet(dlss_runtime, final_appdir)
         destination = output / f"{name}.AppImage"
